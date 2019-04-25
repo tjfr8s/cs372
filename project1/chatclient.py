@@ -1,10 +1,11 @@
 import socket
 
-def send_message(client_socket):
-    message = input(': ')
+def send_message(client_socket, user_name):
+    message = input(f'{user_name}> ')
     if not message == '\quit':
-        message = message.encode()
-        client_socket.sendall(message)
+        message_with_handle = f'{user_name}> {message}' 
+        message_with_handle = message_with_handle.encode()
+        client_socket.sendall(message_with_handle)
         return True
     else:
         message = message.encode()
@@ -16,22 +17,23 @@ def create_client_socket(host, port):
     s.connect((HOST, PORT))
     return s
 
-def exchange_messages(client_socket):
+def exchange_messages(client_socket, user_name):
     while(True):
-        if not send_message(client_socket):
+        if not send_message(client_socket, user_name):
             return 0
         data = client_socket.recv(1024)
         data = data.decode()
         if data == '\quit':
             return 0
         else:
-            print(': %s' % data)
+            print(data)
 
 if __name__ == '__main__':
 
     HOST = 'flip1.engr.oregonstate.edu'   
     PORT = 30027
 
+    user_name = input("Please enter your username: ")
     client_socket = create_client_socket(HOST, PORT)
-    exchange_messages(client_socket)
+    exchange_messages(client_socket, user_name)
     client_socket.close()
