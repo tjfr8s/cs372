@@ -25,8 +25,7 @@ def exchange_messages(server_socket_connection, user_name):
             return 0
         else:
             print(data)
-        if not data:
-            break
+
         if not send_message(server_socket_connection, user_name):
             return 0 
 
