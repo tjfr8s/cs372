@@ -1,8 +1,11 @@
+#!/bin/python3
 """
 Author: Tyler Freitas
-Date: 05/01/2019
+Program Name: chatserve.py
+Last Modified: 05/01/2019
 Description: This program creates a chat server listening on the port specified
 as the first (and only) command line argument.
+Course: cs372
 """
 import socket
 import sys
@@ -18,8 +21,15 @@ def send_message(server_socket_connection, user_name):
 
     @return                             returns true if the user quits and
                                         false otherwise.
+
+    @preconditions:
+     - a socket connection is established and passed to function
+
+    @postconditions:
+     - the user's messageis sent through the socket
     """
     message = input(f'{user_name}> ')
+    
     if not message == '\quit':
         message_with_handle = f'{user_name}> {message}'
         message_with_handle = message_with_handle.encode()
@@ -38,6 +48,11 @@ def exchange_messages(server_socket_connection, user_name):
     @param  user_name                   user name string to be added to 
                                         messages.
 
+    @preconditions:
+     - a socket connection is established and passed to function
+
+    @postconditions:
+     - the message exchange loop continues until someone quits.
     """
     while True:
         data = server_socket_connection.recv(1024).decode()
@@ -56,10 +71,17 @@ def create_socket(host, server_port, user_name):
     @param  host            empty string to indicate that we should  bind to all 
                             interfaces.
     @param  server_port     port to bind socket to.
+
+    @preconditions:     
+     - host, port, and username are passed to function
+
+    @postconditions:
+     - a socket is created and used to exchange messages.
     """
 
     # Bind socket to target address and port
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((host, server_port))
         s.listen(1)
         conn, addr = s.accept()
