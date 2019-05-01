@@ -1,9 +1,7 @@
 import socket
 
 def get_server_port():
-    port_input = 30027
-    print('Getting port from user')
-
+    port_input = int(input('Choose a port to listen on: '))
     return port_input 
 
 def send_message(server_socket_connection, user_name):
@@ -46,13 +44,14 @@ def handle_requests(server_socket):
     return 
 
 if __name__ == '__main__':
-    # Request port from user.
-    SERVER_PORT = get_server_port() 
-    HOST = ''
+    while(True):
+        # Request port from user.
+        SERVER_PORT = get_server_port() 
+        HOST = ''
 
-    user_name = input('Please enter your username: ')
+        user_name = input('Please enter your username: ')
 
-    print('Started message server on port %d...' % SERVER_PORT)
-    # Start server on specified port.
-    create_socket(HOST, SERVER_PORT, user_name)
+        # Start server on specified port.
+        print('Started message server on port %d...' % SERVER_PORT)
+        create_socket(HOST, SERVER_PORT, user_name)
     
