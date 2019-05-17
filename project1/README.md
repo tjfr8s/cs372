@@ -37,3 +37,8 @@ and port you wish to make a connection with.
 first message and send it with the enter key.  This step initiates a 
 conversation. The two users will then be able to alternate sending
 messages until one of them enters `\quit`. a user name again.
+
+
+### Citations:
+- https://beej.us/guide/bgnet/
+- https://docs.python.org/3/library/socket.html

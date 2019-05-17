@@ -98,6 +98,18 @@ bool recv_message(int sockfd) {
     }
 }
 
+/*
+ * This function creates a connection to a chat server using the sockets api.
+ *
+ * @param: host         string containing the server address to be connected to.
+ * @param: host         string containing the server port to be connected to.
+ *
+ * @preconditions:      
+ * - host address and port are passed to function. 
+ *
+ * @postconditions:
+ * - 
+ */
 void start_connection(char* host, char* port) {
     int status;
     struct addrinfo hints;
