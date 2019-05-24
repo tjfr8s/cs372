@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200112L 
 #define BUFFER_SIZE 1024
+#define FILE_BUFFER_SIZE 16384
 
 #include <stdio.h>
 #include <stdbool.h>
@@ -16,9 +17,8 @@
 #include <signal.h>
 #include <dirent.h>
 
-void data_connection(char* host, char* port, char* message) {
+void data_connection(char* host, char* port, int* datafd) {
     int status;
-    int len;
     struct addrinfo hints;
     struct addrinfo* res;
     char ipstr[INET6_ADDRSTRLEN];
@@ -56,19 +56,12 @@ void data_connection(char* host, char* port, char* message) {
     }
 
     // Create socket using address information generated above.
-    int datafd;
     int connect_stat;
-    datafd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    if((connect_stat = connect(datafd, res->ai_addr, res->ai_addrlen)) != 0) {
+    *datafd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    if((connect_stat = connect(*datafd, res->ai_addr, res->ai_addrlen)) != 0) {
         fprintf(stderr, "connect: %d\nerror: %s\n", errno, strerror(errno));
-    } else {
-    }
-
-    len = strlen(message);
-    send(datafd, message, len, 0);
-
+    } 
     // Free address struct
-
     freeaddrinfo(res);
 }
 
@@ -82,6 +75,7 @@ void list_contents(int controlfd) {
     char* error = "error";
     int lenok = strlen(ok);
     int lenerror = strlen(error);
+    int datafd = 0;
 
     memset(lsBuff, 0, sizeof(lsBuff));
 
@@ -101,8 +95,10 @@ void list_contents(int controlfd) {
         }
 
         closedir(dr);
-        data_connection("flip1.engr.oregonstate.edu", "30073", lsBuff);
-        printf("%s ", lsBuff); 
+        sleep(1);
+        data_connection("flip1.engr.oregonstate.edu", "30073", &datafd);
+        send(datafd, lsBuff, sizeof(lsBuff), 0);
+        close(datafd);
         printf("\n");
     } else {
         send(controlfd, error, lenerror, 0);
@@ -111,7 +107,44 @@ void list_contents(int controlfd) {
 }
 
 // Get file: 
-void get_file(int datafd, char* filename, int controlfd) {
+// https://stackoverflow.com/questions/3463426/in-c-how-should-i-read-a-text-file-and-print-all-strings (reading chunks of file in c)
+void get_file(int controlfd, char* filename) {
+    bool success = true;
+    char* ok = "ok";
+    char* error = "error";
+    char* done = "done";
+    int lenok = strlen(ok);
+    int lenerror = strlen(error);
+    int lendone = strlen(done);
+    FILE* fp;
+    char fileBuffer[BUFFER_SIZE];
+    int numRead;
+    int datafd;
+
+    memset(fileBuffer, 0, sizeof(fileBuffer));
+
+    fp = fopen(filename, "rb");
+
+    if (!fp) {
+        perror("error accessing file\n");
+        success = false;
+    }
+
+    if (success) {
+        send(controlfd, ok, lenok, 0);
+        sleep(1);
+        data_connection("flip1.engr.oregonstate.edu", "30073", &datafd);
+
+        while ((numRead = fread(fileBuffer, 1, sizeof(fileBuffer) - 1, fp)) > 0 ) {
+            send(controlfd, ok, lenok, 0);
+            sleep(1);
+            send(datafd, fileBuffer, sizeof(fileBuffer), 0);
+            memset(fileBuffer, 0, sizeof(fileBuffer));
+        }
+
+    } else {
+        send(controlfd, error, lenerror, 0);
+    }
 }
 
 // Parse command
@@ -156,7 +189,7 @@ bool recv_command(int controlfd) {
         list_contents(controlfd);
     } else if (strcmp(commands[0], "-g") == 0) {
         printf("get file\n");
-        list_contents(controlfd);
+        get_file(controlfd, commands[1]);
     }
 
 
