@@ -96,7 +96,7 @@ void list_contents(int controlfd) {
 
         closedir(dr);
         sleep(1);
-        data_connection("flip1.engr.oregonstate.edu", "30073", &datafd);
+        data_connection("flip2.engr.oregonstate.edu", "30073", &datafd);
         send(datafd, lsBuff, sizeof(lsBuff), 0);
         close(datafd);
         printf("\n");
@@ -133,7 +133,7 @@ void get_file(int controlfd, char* filename) {
     if (success) {
         send(controlfd, ok, lenok, 0);
         sleep(1);
-        data_connection("flip1.engr.oregonstate.edu", "30073", &datafd);
+        data_connection("flip2.engr.oregonstate.edu", "30073", &datafd);
 
         while ((numRead = fread(fileBuffer, 1, sizeof(fileBuffer) - 1, fp)) > 0 ) {
             send(controlfd, ok, lenok, 0);
@@ -141,7 +141,6 @@ void get_file(int controlfd, char* filename) {
             send(datafd, fileBuffer, sizeof(fileBuffer), 0);
             memset(fileBuffer, 0, sizeof(fileBuffer));
         }
-
     } else {
         send(controlfd, error, lenerror, 0);
     }
@@ -162,7 +161,8 @@ void parse_command(char* commandString, char** commandArray){
 // Receive and handle the command
 bool recv_command(int controlfd) {
     char    commandBuff[BUFFER_SIZE];
-    char*   commands[2] = {NULL};
+    char*   commands[3] = {NULL};
+    int     portNum;
     memset(&commandBuff, 0,  sizeof(char) * BUFFER_SIZE);
 
     // Receive command through the socket.
@@ -263,8 +263,10 @@ int start_server(const char* portNum) {
 
 
 int main(int argc, char** argv) {
-    const char* portNum = "30072";
-    start_server(portNum);
+    if (argc > 2) {
+        printf("Error, too many arguments\n");
+    } 
 
+    start_server(argv[1]);
     return 0;
 }
