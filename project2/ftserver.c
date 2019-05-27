@@ -244,7 +244,7 @@ void parse_command(char* commandString, char** commandArray){
 *******************************************************************************/
 bool recv_command(int controlfd, const char* portNum) {
     char    commandBuff[BUFFER_SIZE];
-    char*   commands[3] = {NULL};
+    char*   commands[4] = {NULL};
     
     memset(&commandBuff, 0,  sizeof(char) * BUFFER_SIZE);
 
