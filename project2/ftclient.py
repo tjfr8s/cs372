@@ -1,16 +1,15 @@
 import socket
 import sys
 
-def send_command(control_socket, command):
+def send_command(control_socket, command, host, port):
     control_socket.sendall(" ".join(command).encode())
     response = control_socket.recv(1024)
     response = response.decode()
 
     if response == "ok":
-        print(response)
         return True
     else:
-        print(f'error: {response}')
+        print(f'{host}:{port} says {response}')
         return False;
 
 
@@ -39,7 +38,6 @@ def create_data_socket(host, server_port):
     """
 
     # Bind socket to target address and port
-    print(f'creating socket host: {host} port: {server_port}')
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((host, server_port))
@@ -50,7 +48,7 @@ def create_data_socket(host, server_port):
 
 def recv_list_directory(conn):
     message = conn.recv(1024).decode();
-    print(message);
+    print(message)
     return True
 
 def recv_file(control_socket, conn, filename):
@@ -58,6 +56,7 @@ def recv_file(control_socket, conn, filename):
     with open(filename, "w") as ofile:
         while (control_socket.recv(1024).decode() == 'ok'):
             ofile.write(conn.recv(1024).decode())
+        print("File transfer complete.")
     return True
 
 def parse_args(argv):
@@ -79,16 +78,16 @@ def parse_args(argv):
         return
     
     control_socket = create_control_socket(CONTROL_HOST, CONTROL_PORT)
-    was_successful = send_command(control_socket, command) 
+    was_successful = send_command(control_socket, command, CONTROL_HOST, CONTROL_PORT) 
 
     if was_successful and command[0] == "-l":
-        print("lala")
         #create data socket
         conn = create_data_socket(DATA_HOST, DATA_PORT)
         #recv_list_directory
+        print(f'Receiving directory structure from {CONTROL_HOST}:{DATA_PORT}')
         recv_list_directory(conn);
     elif was_successful and command[0] == "-g":
-        print("lala")
+        print(f'Receiving "{command[1]}" from {CONTROL_HOST}:{DATA_PORT}')
         #create data socket
         #recv_file
         conn = create_data_socket(DATA_HOST, DATA_PORT)

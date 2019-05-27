@@ -28,7 +28,6 @@ void data_connection(char* host, char* port, int* datafd) {
     hints.ai_socktype = SOCK_STREAM;
 
     // Generate address info for creating socket.
-    printf("Connecting to %s on port %s", host, port);
     if ((status = getaddrinfo(host, 
                           port, 
                           &hints, 
@@ -39,20 +38,16 @@ void data_connection(char* host, char* port, int* datafd) {
     struct addrinfo* p; 
     for (p = res; p != NULL; p = p->ai_next) {
         void* addr;
-        char* ipver;
 
         if (p->ai_family == AF_INET) {
             struct sockaddr_in* ipv4 = (struct sockaddr_in*)p->ai_addr;
             addr = &(ipv4->sin_addr);
-            ipver = "IPv4";
         } else {
             struct sockaddr_in6* ipv6 = (struct sockaddr_in6*)p->ai_addr;
             addr = &(ipv6->sin6_addr);
-            ipver = "IPv6";
         }
 
         inet_ntop(p->ai_family, addr, ipstr, sizeof ipstr);
-        printf("    %s: %s\n", ipver, ipstr);
     }
 
     // Create socket using address information generated above.
@@ -66,18 +61,20 @@ void data_connection(char* host, char* port, int* datafd) {
 }
 
 // List directory contents: 
-void list_contents(int controlfd) {
+void list_contents(int controlfd, char* dataport, char* datahost) {
     struct dirent* entry;
     char lsBuff[BUFFER_SIZE];
     DIR* dr = opendir(".");
     bool success = true;
     char* ok = "ok";
-    char* error = "error";
+    char* error = "ERROR LISTING CONTENTS";
     int lenok = strlen(ok);
     int lenerror = strlen(error);
     int datafd = 0;
 
     memset(lsBuff, 0, sizeof(lsBuff));
+    printf("Connection from %s\n", datahost);
+    printf("List directory requested on port %s\n", dataport);
 
     if (dr == NULL) {
         perror("couldn't open dir");
@@ -87,6 +84,7 @@ void list_contents(int controlfd) {
 
     if (success) {
 
+        printf("Sending directory contents to %s:%s", datahost, dataport);
         send(controlfd, ok, lenok, 0);
 
         while ((entry = readdir(dr)) != NULL) {
@@ -96,7 +94,7 @@ void list_contents(int controlfd) {
 
         closedir(dr);
         sleep(1);
-        data_connection("flip2.engr.oregonstate.edu", "30073", &datafd);
+        data_connection(datahost, dataport, &datafd);
         send(datafd, lsBuff, sizeof(lsBuff), 0);
         close(datafd);
         printf("\n");
@@ -108,10 +106,10 @@ void list_contents(int controlfd) {
 
 // Get file: 
 // https://stackoverflow.com/questions/3463426/in-c-how-should-i-read-a-text-file-and-print-all-strings (reading chunks of file in c)
-void get_file(int controlfd, char* filename) {
+void get_file(int controlfd, char* filename, char* dataport, char* datahost, const char* controlport) {
     bool success = true;
     char* ok = "ok";
-    char* error = "error";
+    char* error = "FILE NOT FOUND";
     char* done = "done";
     int lenok = strlen(ok);
     int lenerror = strlen(error);
@@ -125,25 +123,31 @@ void get_file(int controlfd, char* filename) {
 
     fp = fopen(filename, "rb");
 
+    printf("Connection from %s\n", datahost);
+    printf("File \"%s\" requested on port %s\n", filename, dataport);
+
     if (!fp) {
-        perror("error accessing file\n");
+        printf("File not found. Sending error message to %s:%s\n", datahost, controlport);
         success = false;
     }
 
     if (success) {
+        printf("Sending file \"%s\" to %s:%s\n", filename, datahost, dataport);
         send(controlfd, ok, lenok, 0);
         sleep(1);
-        data_connection("flip2.engr.oregonstate.edu", "30073", &datafd);
+        data_connection(datahost, dataport, &datafd);
 
-        while ((numRead = fread(fileBuffer, 1, sizeof(fileBuffer) - 1, fp)) > 0 ) {
+        while ((numRead = fread(fileBuffer, 1, sizeof(fileBuffer), fp)) > 0 ) {
             send(controlfd, ok, lenok, 0);
             sleep(1);
             send(datafd, fileBuffer, sizeof(fileBuffer), 0);
             memset(fileBuffer, 0, sizeof(fileBuffer));
         }
+        send(controlfd, done, lendone, 0);
     } else {
         send(controlfd, error, lenerror, 0);
     }
+
 }
 
 // Parse command
@@ -157,12 +161,21 @@ void parse_command(char* commandString, char** commandArray){
     }
 }
 
+int str_to_int(char* string) {
+    int num = 0;
+    int i;
+    for (i = 0; i < strlen(string); i++) {
+        num *= 10;
+        num += (string[i] - 48);
+    }
+    return num;
+}
 
 // Receive and handle the command
-bool recv_command(int controlfd) {
+bool recv_command(int controlfd, const char* portNum) {
     char    commandBuff[BUFFER_SIZE];
     char*   commands[3] = {NULL};
-    int     portNum;
+    
     memset(&commandBuff, 0,  sizeof(char) * BUFFER_SIZE);
 
     // Receive command through the socket.
@@ -175,21 +188,10 @@ bool recv_command(int controlfd) {
     parse_command(commandBuff, commands);
 
 
-    /*
-    int i;
-    for (i = 0; i < 2; i++) {
-        if(commands[i] != NULL) {
-            printf("command%d: %s\n", i, commands[i]);
-        }
-    }
-    */
-
     if (strcmp(commands[0], "-l") == 0) { 
-        printf("list contents\n");
-        list_contents(controlfd);
+        list_contents(controlfd, commands[1], commands[2]);
     } else if (strcmp(commands[0], "-g") == 0) {
-        printf("get file\n");
-        get_file(controlfd, commands[1]);
+        get_file(controlfd, commands[1], commands[2], commands[3], portNum);
     }
 
 
@@ -241,7 +243,7 @@ int start_server(const char* portNum) {
 
     freeaddrinfo(serverInfo);
 
-    printf("waiting for message...\n");
+    printf("Server open on %s\n", portNum);
     // Listen on port.
     if (listen(sockfd, 5) == -1) {
         fprintf(stderr, "listen() error: %s\n", strerror(errno));
@@ -252,7 +254,7 @@ int start_server(const char* portNum) {
         // Control fd
         theirAddrSize = sizeof(theirAddr);
         controlfd = accept(sockfd, (struct sockaddr*)&theirAddr, &theirAddrSize);
-        recv_command(controlfd);
+        recv_command(controlfd, portNum);
         close(controlfd);
     }
     close(sockfd);
